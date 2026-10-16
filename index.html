@@ -1,1 +1,156 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K-Means İnteraktif Simülasyonu</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; background: #f4f6f9; margin: 0; padding: 20px; }
+    h2 { color: #2c3e50; margin-bottom: 5px; }
+    p { color: #7f8c8d; margin-top: 0; }
+    #canvas-container { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 15px; display: flex; flex-direction: column; align-items: center; }
+    canvas { border: 1px solid #e2e8f0; border-radius: 8px; background: #fafafa; cursor: pointer; }
+    .controls { margin-top: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    button { background: #3498db; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #2980b9; }
+    button:disabled { background: #bdc3c7; cursor: not-allowed; }
+    .status { margin-top: 12px; font-weight: bold; color: #2c3e50; background: #edf2f7; padding: 8px 16px; border-radius: 20px; }
+  </style>
+</head>
+<body>
 
+  <h2>K-Means Kümeleme Simülasyonu</h2>
+  <p>Yapay Zekaya Giriş - Adım Adım Çalışma Mantığı</p>
+
+  <div id="canvas-container">
+    <canvas id="simCanvas" width="500" height="400"></canvas>
+    
+    <div class="controls">
+      <label for="kSelect"><b>Küme Sayısı (K):</b> </label>
+      <select id="kSelect">
+        <option value="2">2</option>
+        <option value="3" selected>3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+      <button id="nextBtn">Sonraki Adım</button>
+      <button id="resetBtn" style="background:#e74c3c;">Sıfırla / Yeni Veri</button>
+    </div>
+
+    <div class="status" id="statusText">Aşama: Başlangıç (Rastgele Küme Merkezleri)</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f'];
+
+    let K = 3;
+    let points = [];
+    let centroids = [];
+    let step = 0;
+
+    function initData() {
+      K = parseInt(document.getElementById('kSelect').value);
+      points = [];
+      centroids = [];
+      step = 0;
+
+      for (let i = 0; i < 70; i++) {
+        points.push({
+          x: Math.random() * (canvas.width - 60) + 30,
+          y: Math.random() * (canvas.height - 60) + 30,
+          cluster: -1
+        });
+      }
+
+      let shuffled = [...points].sort(() => 0.5 - Math.random());
+      for (let i = 0; i < K; i++) {
+        centroids.push({ x: shuffled[i].x, y: shuffled[i].y });
+      }
+
+      document.getElementById('statusText').innerText = "Aşama: Başlangıç (Merkezler Seçildi)";
+      draw();
+    }
+
+    function assignClusters() {
+      let changed = false;
+      points.forEach(p => {
+        let minDist = Infinity;
+        let clusterIndex = -1;
+        centroids.forEach((c, idx) => {
+          let dist = Math.hypot(p.x - c.x, p.y - c.y);
+          if (dist < minDist) {
+            minDist = dist;
+            clusterIndex = idx;
+          }
+        });
+        if (p.cluster !== clusterIndex) changed = true;
+        p.cluster = clusterIndex;
+      });
+      return changed;
+    }
+
+    function updateCentroids() {
+      for (let i = 0; i < K; i++) {
+        let clusterPoints = points.filter(p => p.cluster === i);
+        if (clusterPoints.length > 0) {
+          let sumX = clusterPoints.reduce((acc, p) => acc + p.x, 0);
+          let sumY = clusterPoints.reduce((acc, p) => acc + p.y, 0);
+          centroids[i].x = sumX / clusterPoints.length;
+          centroids[i].y = sumY / clusterPoints.length;
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      points.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = p.cluster === -1 ? '#bdc3c7' : colors[p.cluster];
+        ctx.fill();
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      });
+
+      centroids.forEach((c, i) => {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(c.x - 4, c.y - 4); ctx.lineTo(c.x + 4, c.y + 4);
+        ctx.moveTo(c.x + 4, c.y - 4); ctx.lineTo(c.x - 4, c.y + 4);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (step === 0 || step === 2) {
+        assignClusters();
+        step = 1;
+        document.getElementById('statusText').innerText = "Aşama: Noktalar En Yakın Merkeze Atandı";
+      } else if (step === 1) {
+        updateCentroids();
+        step = 2;
+        document.getElementById('statusText').innerText = "Aşama: Merkezler Ortalamaya Kaydırıldı";
+      }
+      draw();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', initData);
+    document.getElementById('kSelect').addEventListener('change', initData);
+
+    initData();
+  </script>
+</body>
+</html>
